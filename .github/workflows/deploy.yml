@@ -1,0 +1,74 @@
+name: Deploy Java App to Azure with Terraform
+
+on:
+  push:
+    branches: ['main'] # Deploy only when pushing to main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    # Environment variables for Terraform & Azure authentication
+    env:
+      ARM_ACCESS_KEY: ${{ secrets.ARM_ACCESS_KEY }} # For Terraform backend access
+      AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }} # For Azure login (Service Principal JSON)
+      JAVA_VERSION: '17' # Java version for build
+
+    steps:
+      # -----------------------------------------------
+      # Step 1: Checkout code
+      # -----------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -----------------------------------------------
+      # Step 2: Set up Terraform
+      # -----------------------------------------------
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      # -----------------------------------------------
+      # Step 3: Terraform Init
+      # -----------------------------------------------
+      - name: Terraform Init
+        working-directory: infra
+        run: terraform init
+
+      # -----------------------------------------------
+      # Step 4: Terraform Apply
+      # -----------------------------------------------
+      - name: Terraform Apply
+        working-directory: infra
+        run: terraform apply -auto-approve
+
+      # -----------------------------------------------
+      # Step 5: Set up Java
+      # -----------------------------------------------
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+
+      # -----------------------------------------------
+      # Step 6: Build JAR with Maven
+      # -----------------------------------------------
+      - name: Build application
+        run: mvn clean package -DskipTests
+
+      # -----------------------------------------------
+      # Step 7: Log in to Azure using Service Principal
+      # -----------------------------------------------
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ env.AZURE_CREDENTIALS }}
+
+      # -----------------------------------------------
+      # Step 8: Deploy JAR to Azure Web App
+      # -----------------------------------------------
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'java-azure-demo-app' # must match name in your Terraform config
+          package: 'target/*.jar'
