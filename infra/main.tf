@@ -42,9 +42,11 @@ resource "azurerm_linux_web_app" "app" {
   service_plan_id     = azurerm_service_plan.plan.id
 
   site_config {
+  application_stack {
     java_version = "17"
-    java_server  = "JAVA"
   }
+}
+
 
   app_settings = {
     "WEBSITE_RUN_FROM_PACKAGE" = "1"
