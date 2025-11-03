@@ -43,10 +43,11 @@ resource "azurerm_linux_web_app" "app" {
 
   site_config {
   application_stack {
-    java_version = "17"
+    java_server          = "JAVA"
+    java_server_version  = "17"
+    java_version         = "17"
   }
 }
-
 
   app_settings = {
     "WEBSITE_RUN_FROM_PACKAGE" = "1"
