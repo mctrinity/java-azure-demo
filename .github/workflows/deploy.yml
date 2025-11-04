@@ -109,6 +109,7 @@ jobs:
       # Step 8: Terraform Apply (Sensitive-safe)
       # -----------------------------------------------
       - name: Terraform Apply (Sensitive-safe)
+        id: terraform-apply
         if: env.drift_detected == 'true' || env.drift_detected == 'false'
         working-directory: ${{ env.TF_DIR }}
         run: |
@@ -118,6 +119,11 @@ jobs:
           | sed -E 's/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[REDACTED-GUID]/g' \
           | sed -E 's/[A-Za-z0-9+\/=]{20,}/[REDACTED-SECRET]/g' \
           | sed -E 's/\/subscriptions\/[0-9a-f-]+/[REDACTED-SUBSCRIPTION]/g'
+          
+          # Verify that key resources were created
+          echo "🔍 Verifying Terraform outputs..."
+          terraform output webapp_name || echo "::warning::No webapp_name output found"
+          terraform output webapp_url || echo "::warning::No webapp_url output found"
 
       # -----------------------------------------------
       # Step 9: Set up Java
@@ -136,11 +142,29 @@ jobs:
         run: mvn clean package -DskipTests
 
       # -----------------------------------------------
-      # Step 11: Deploy JAR to Azure Web App
+      # Step 11: Verify Web App exists before deployment
+      # -----------------------------------------------
+      - name: Verify Web App exists
+        id: verify-webapp
+        run: |
+          echo "🔍 Checking if Web App exists..."
+          if az webapp show --name java-azure-demo-app --resource-group java-azure-demo-rg > /dev/null 2>&1; then
+            echo "✅ Web App java-azure-demo-app exists."
+            echo "webapp_exists=true" >> $GITHUB_ENV
+          else
+            echo "❌ Web App java-azure-demo-app does not exist!"
+            echo "webapp_exists=false" >> $GITHUB_ENV
+            echo "::error::Web App java-azure-demo-app was not created by Terraform. Please check the Terraform apply step."
+            exit 1
+          fi
+
+      # -----------------------------------------------
+      # Step 12: Deploy JAR to Azure Web App
       # -----------------------------------------------
       - name: Deploy to Azure Web App
-        if: env.drift_detected == 'false' || env.drift_detected == 'true'
+        if: env.webapp_exists == 'true'
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'java-azure-demo-app'
           package: 'target/*.jar'
+          slot-name: production
