@@ -55,6 +55,17 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       # -----------------------------------------------
+      # Step 5.5: Register Required Providers
+      # -----------------------------------------------
+      - name: Register Azure Providers
+        run: |
+          echo "🔧 Registering required Azure providers..."
+          az provider register --namespace Microsoft.App --wait
+          az provider register --namespace Microsoft.ContainerRegistry --wait
+          az provider register --namespace Microsoft.OperationalInsights --wait
+          echo "✅ Providers registered successfully"
+
+      # -----------------------------------------------
       # Step 6: Check and Import Resource Group if Needed
       # -----------------------------------------------
       - name: Check and Import Resource Group
@@ -115,15 +126,26 @@ jobs:
         run: |
           set -e
           echo "🚀 Applying Terraform changes..."
+          
+          # Apply with detailed logging
           terraform apply -auto-approve -no-color -var='azure_credentials=${{ secrets.AZURE_CREDENTIALS }}' \
           | sed -E 's/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[REDACTED-GUID]/g' \
           | sed -E 's/[A-Za-z0-9+\/=]{20,}/[REDACTED-SECRET]/g' \
-          | sed -E 's/\/subscriptions\/[0-9a-f-]+/[REDACTED-SUBSCRIPTION]/g'
+          | sed -E 's/\/subscriptions\/[0-9a-f-]+/[REDACTED-SUBSCRIPTION]/g' \
+          | tee terraform_apply.log
+          
+          # Check if apply was successful
+          if [ ${PIPESTATUS[0]} -ne 0 ]; then
+            echo "::error::Terraform apply failed! Check the logs above."
+            echo "📋 Terraform apply log:"
+            cat terraform_apply.log
+            exit 1
+          fi
           
           # Verify that key resources were created
           echo "🔍 Verifying Terraform outputs..."
-          terraform output webapp_name || echo "::warning::No webapp_name output found"
-          terraform output webapp_url || echo "::warning::No webapp_url output found"
+          terraform output container_app_name || echo "::warning::No container_app_name output found"
+          terraform output container_app_url || echo "::warning::No container_app_url output found"
 
       # -----------------------------------------------
       # Step 9: Set up Java

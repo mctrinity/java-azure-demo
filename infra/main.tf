@@ -5,6 +5,7 @@ terraform {
       version = "~> 4.0"
     }
   }
+  required_version = ">= 1.0"
 
   backend "azurerm" {
     resource_group_name  = "tfstate-rg"       # from create-tf-backend.ps1
@@ -50,6 +51,12 @@ resource "azurerm_container_app_environment" "env" {
   location                   = azurerm_resource_group.rg.location
   resource_group_name        = azurerm_resource_group.rg.name
   log_analytics_workspace_id = azurerm_log_analytics_workspace.law.id
+
+  # Add tags for debugging
+  tags = {
+    Environment = "demo"
+    Project     = "java-azure-demo"
+  }
 }
 
 # -------------------------------------------------------------
@@ -62,10 +69,13 @@ resource "azurerm_container_app" "app" {
   revision_mode                = "Single"
 
   template {
+    min_replicas = 0
+    max_replicas = 1
+
     container {
       name   = "java-app"
       image  = "mcr.microsoft.com/openjdk/jdk:17-ubuntu"
-      cpu    = 0.25
+      cpu    = "0.25"
       memory = "0.5Gi"
 
       env {
@@ -73,9 +83,6 @@ resource "azurerm_container_app" "app" {
         value = "8080"
       }
     }
-
-    min_replicas = 1
-    max_replicas = 3
   }
 
   ingress {
@@ -85,5 +92,11 @@ resource "azurerm_container_app" "app" {
       percentage      = 100
       latest_revision = true
     }
+  }
+
+  # Add tags for debugging
+  tags = {
+    Environment = "demo"
+    Project     = "java-azure-demo"
   }
 }
