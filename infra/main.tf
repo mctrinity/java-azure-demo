@@ -32,56 +32,58 @@ resource "azurerm_resource_group" "rg" {
 }
 
 # -------------------------------------------------------------
-# App Service Plan (Auto fallback between B1 → F1)
+# Log Analytics Workspace (required for Container Apps)
 # -------------------------------------------------------------
-# Tries to create Basic (B1) first; if that fails due to quota,
-# it falls back to Free (F1) automatically on re-apply.
-resource "azurerm_service_plan" "plan" {
-  name                = "${var.app_name}-plan"
+resource "azurerm_log_analytics_workspace" "law" {
+  name                = "${var.app_name}-law"
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
-  os_type             = "Linux"
-
-  # Default: Basic plan for real workloads
-  sku_name            = "B1"
-  lifecycle {
-    ignore_changes = [sku_name] # allows fallback update without destroy/recreate
-  }
+  sku                 = "PerGB2018"
+  retention_in_days   = 30
 }
 
 # -------------------------------------------------------------
-# Fallback Logic (uses Terraform's conditional + null_resource)
+# Container Apps Environment
 # -------------------------------------------------------------
-# This triggers if the B1 creation fails once; user can safely reapply
-# after switching sku_name to F1 below.
-resource "null_resource" "quota_fallback_notice" {
-  triggers = {
-    attempted_plan = azurerm_service_plan.plan.name
-  }
-
-  provisioner "local-exec" {
-    command = "echo '⚠️ Azure quota may block Basic (B1). If apply fails, change sku_name to F1 in main.tf or run terraform apply again after quota approval.'"
-  }
+resource "azurerm_container_app_environment" "env" {
+  name                       = "${var.app_name}-env"
+  location                   = azurerm_resource_group.rg.location
+  resource_group_name        = azurerm_resource_group.rg.name
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.law.id
 }
 
 # -------------------------------------------------------------
-# Web App (Java)
+# Container App (Java)
 # -------------------------------------------------------------
-resource "azurerm_linux_web_app" "app" {
-  name                = var.app_name
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-  service_plan_id     = azurerm_service_plan.plan.id
+resource "azurerm_container_app" "app" {
+  name                         = var.app_name
+  container_app_environment_id = azurerm_container_app_environment.env.id
+  resource_group_name          = azurerm_resource_group.rg.name
+  revision_mode                = "Single"
 
-  site_config {
-    application_stack {
-      java_server          = "JAVA"
-      java_server_version  = "17"
-      java_version         = "17"
+  template {
+    container {
+      name   = "java-app"
+      image  = "mcr.microsoft.com/openjdk/jdk:17-ubuntu"
+      cpu    = 0.25
+      memory = "0.5Gi"
+
+      env {
+        name  = "PORT"
+        value = "8080"
+      }
     }
+
+    min_replicas = 1
+    max_replicas = 3
   }
 
-  app_settings = {
-    "WEBSITE_RUN_FROM_PACKAGE" = "1"
+  ingress {
+    external_enabled = true
+    target_port      = 8080
+    traffic_weight {
+      percentage      = 100
+      latest_revision = true
+    }
   }
 }

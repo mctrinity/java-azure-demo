@@ -142,29 +142,43 @@ jobs:
         run: mvn clean package -DskipTests
 
       # -----------------------------------------------
-      # Step 11: Verify Web App exists before deployment
+      # Step 11: Verify Container App exists before deployment
       # -----------------------------------------------
-      - name: Verify Web App exists
-        id: verify-webapp
+      - name: Verify Container App exists
+        id: verify-container-app
         run: |
-          echo "🔍 Checking if Web App exists..."
-          if az webapp show --name java-azure-demo-app --resource-group java-azure-demo-rg > /dev/null 2>&1; then
-            echo "✅ Web App java-azure-demo-app exists."
-            echo "webapp_exists=true" >> $GITHUB_ENV
+          echo "🔍 Checking if Container App exists..."
+          if az containerapp show --name java-azure-demo-app --resource-group java-azure-demo-rg > /dev/null 2>&1; then
+            echo "✅ Container App java-azure-demo-app exists."
+            echo "container_app_exists=true" >> $GITHUB_ENV
+            # Get the container app's ingress URL
+            CONTAINER_APP_URL=$(az containerapp show --name java-azure-demo-app --resource-group java-azure-demo-rg --query "properties.configuration.ingress.fqdn" -o tsv)
+            echo "🌐 Container App URL: https://$CONTAINER_APP_URL"
           else
-            echo "❌ Web App java-azure-demo-app does not exist!"
-            echo "webapp_exists=false" >> $GITHUB_ENV
-            echo "::error::Web App java-azure-demo-app was not created by Terraform. Please check the Terraform apply step."
+            echo "❌ Container App java-azure-demo-app does not exist!"
+            echo "container_app_exists=false" >> $GITHUB_ENV
+            echo "::error::Container App java-azure-demo-app was not created by Terraform. Please check the Terraform apply step."
             exit 1
           fi
 
       # -----------------------------------------------
-      # Step 12: Deploy JAR to Azure Web App
+      # Step 12: Build and Deploy Container to Azure Container Apps
       # -----------------------------------------------
-      - name: Deploy to Azure Web App
-        if: env.webapp_exists == 'true'
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: 'java-azure-demo-app'
-          package: 'target/*.jar'
-          slot-name: production
+      - name: Build and Deploy to Azure Container Apps
+        if: env.container_app_exists == 'true'
+        run: |
+          echo "🐳 Building and deploying container to Azure Container Apps..."
+          
+          # Build the container image and deploy directly to Container Apps
+          az containerapp up \
+            --name java-azure-demo-app \
+            --resource-group java-azure-demo-rg \
+            --environment java-azure-demo-app-env \
+            --image mcr.microsoft.com/openjdk/jdk:17-ubuntu \
+            --target-port 8080 \
+            --ingress external \
+            --source . \
+            --cpu 0.25 \
+            --memory 0.5Gi \
+            --min-replicas 1 \
+            --max-replicas 3
