@@ -12,6 +12,8 @@ jobs:
       ARM_ACCESS_KEY: ${{ secrets.ARM_ACCESS_KEY }}
       AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
       JAVA_VERSION: '17'
+      RESOURCE_GROUP: 'java-azure-demo-rg'
+      TF_DIR: 'infra'
 
     steps:
       # -----------------------------------------------
@@ -41,53 +43,80 @@ jobs:
       # Step 4: Terraform Init
       # -----------------------------------------------
       - name: Terraform Init
-        working-directory: infra
+        working-directory: ${{ env.TF_DIR }}
         run: terraform init -input=false -no-color
 
       # -----------------------------------------------
-      # Step 5: Terraform Apply (with auto-import + redaction)
+      # Step 5: Authenticate with Azure
       # -----------------------------------------------
-      - name: Terraform Apply (Auto Import + Secure Logs)
-        working-directory: infra
+      - name: Azure Login (Service Principal)
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # -----------------------------------------------
+      # Step 6: Check and Import Resource Group if Needed
+      # -----------------------------------------------
+      - name: Check and Import Resource Group
+        id: rg-import
+        working-directory: ${{ env.TF_DIR }}
         env:
           AZURE_SUBSCRIPTION_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}
+          RESOURCE_GROUP: ${{ env.RESOURCE_GROUP }}
         run: |
           set -e
-          echo "🚀 Applying Terraform changes securely..."
-
-          terraform apply -auto-approve -no-color -var='azure_credentials=${{ secrets.AZURE_CREDENTIALS }}' 2>&1 | tee terraform.log \
-          | sed -E 's/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[REDACTED-GUID]/g' \
-          | sed -E 's/(\/subscriptions\/)[^\/]+/\1[REDACTED-SUBSCRIPTION]/g' \
-          | sed -E 's/(client_secret|access_key|token|connection_string|password)["'\'']?:["'\'']?[^"'\'' ]+/[REDACTED-SECRET]/gi'
-
-          status=${PIPESTATUS[0]}
-
-          if [ $status -ne 0 ]; then
-            echo "⚠️ Terraform apply failed — checking for existing Azure resources..."
-
-            if grep -q "already exists" terraform.log; then
-              echo "🔄 Resource already exists in Azure — attempting import..."
-              terraform import -no-color azurerm_resource_group.rg /subscriptions/$AZURE_SUBSCRIPTION_ID/resourceGroups/java-azure-demo-rg || true
-
-              echo "🔁 Retrying Terraform apply..."
-              terraform apply -auto-approve -no-color -var='azure_credentials=${{ secrets.AZURE_CREDENTIALS }}' 2>&1 \
-              | sed -E 's/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[REDACTED-GUID]/g' \
-              | sed -E 's/(\/subscriptions\/)[^\/]+/\1[REDACTED-SUBSCRIPTION]/g' \
-              | sed -E 's/(client_secret|access_key|token|connection_string|password)["'\'']?:["'\'']?[^"'\'' ]+/[REDACTED-SECRET]/gi'
-
-              status=${PIPESTATUS[0]}
-            fi
+          echo "🔍 Checking if Resource Group exists..."
+          if az group show --name "$RESOURCE_GROUP" --subscription "$AZURE_SUBSCRIPTION_ID" > /dev/null 2>&1; then
+            echo "✅ Resource Group $RESOURCE_GROUP exists."
+            echo "Checking if it's tracked by Terraform..."
+            terraform state list | grep "azurerm_resource_group.rg" > /dev/null 2>&1 || {
+              echo "📦 Importing existing Resource Group into Terraform state..."
+              terraform import azurerm_resource_group.rg /subscriptions/$AZURE_SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP || echo "ℹ️ Import may already exist. Continuing..."
+            }
+          else
+            echo "🆕 Resource Group does not exist. Terraform will create it."
           fi
-
-          if [ $status -ne 0 ]; then
-            echo "❌ Terraform failed after import attempt. Stopping pipeline."
-            exit $status
-          fi
-
-          echo "✅ Terraform apply completed successfully."
 
       # -----------------------------------------------
-      # Step 6: Set up Java
+      # Step 7: Drift Detection
+      # -----------------------------------------------
+      - name: Check for Terraform Drift
+        id: drift
+        working-directory: ${{ env.TF_DIR }}
+        continue-on-error: true
+        run: |
+          echo "🔎 Running Terraform plan to detect drift..."
+          terraform plan -no-color -var='azure_credentials=${{ secrets.AZURE_CREDENTIALS }}' -detailed-exitcode > plan_output.txt 2>&1 || true
+          code=$?
+          if [ "$code" -eq 2 ]; then
+            echo "⚠️ Drift detected — infrastructure changes found."
+            echo "drift_detected=true" >> $GITHUB_ENV
+          elif [ "$code" -eq 0 ]; then
+            echo "✅ No drift detected — infrastructure matches Terraform state."
+            echo "drift_detected=false" >> $GITHUB_ENV
+          else
+            echo "❌ Terraform plan failed — check output below."
+            cat plan_output.txt | sed -E 's/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[REDACTED-GUID]/g'
+            exit 1
+          fi
+          cat plan_output.txt | sed -E 's/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[REDACTED-GUID]/g' | sed -E 's/\/subscriptions\/[0-9a-f-]+/[REDACTED-SUBSCRIPTION]/g'
+
+      # -----------------------------------------------
+      # Step 8: Terraform Apply (Only if no critical drift)
+      # -----------------------------------------------
+      - name: Terraform Apply (Sensitive-safe)
+        if: env.drift_detected == 'true' || env.drift_detected == 'false'
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          set -e
+          echo "🚀 Applying Terraform changes..."
+          terraform apply -auto-approve -no-color -var='azure_credentials=${{ secrets.AZURE_CREDENTIALS }}' \
+          | sed -E 's/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[REDACTED-GUID]/g' \
+          | sed -E 's/[A-Za-z0-9+\/=]{20,}/[REDACTED-SECRET]/g' \
+          | sed -E 's/\/subscriptions\/[0-9a-f-]+/[REDACTED-SUBSCRIPTION]/g'
+
+      # -----------------------------------------------
+      # Step 9: Set up Java
       # -----------------------------------------------
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -96,23 +125,17 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
 
       # -----------------------------------------------
-      # Step 7: Build JAR with Maven
+      # Step 10: Build JAR with Maven
       # -----------------------------------------------
       - name: Build application
+        if: env.drift_detected == 'false' || env.drift_detected == 'true'
         run: mvn clean package -DskipTests
 
       # -----------------------------------------------
-      # Step 8: Azure Login (masked)
-      # -----------------------------------------------
-      - name: Azure Login
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      # -----------------------------------------------
-      # Step 9: Deploy JAR to Azure Web App
+      # Step 11: Deploy JAR to Azure Web App
       # -----------------------------------------------
       - name: Deploy to Azure Web App
+        if: env.drift_detected == 'false' || env.drift_detected == 'true'
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'java-azure-demo-app'
