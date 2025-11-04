@@ -2,15 +2,15 @@ name: Deploy Java App to Azure with Terraform
 
 on:
   push:
-    branches: ['main'] # Deploy only when pushing to main
+    branches: ['main']
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     env:
-      ARM_ACCESS_KEY: ${{ secrets.ARM_ACCESS_KEY }} # For Terraform backend
-      AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }} # Service Principal JSON
+      ARM_ACCESS_KEY: ${{ secrets.ARM_ACCESS_KEY }}
+      AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
       JAVA_VERSION: '17'
 
     steps:
@@ -21,10 +21,13 @@ jobs:
         uses: actions/checkout@v4
 
       # -----------------------------------------------
-      # Step 2: Mask Azure Credentials
+      # Step 2: Mask Secrets
       # -----------------------------------------------
-      - name: Mask Azure Credentials
-        run: echo "::add-mask::${{ secrets.AZURE_CREDENTIALS }}"
+      - name: Mask all sensitive data
+        run: |
+          echo "::add-mask::${{ secrets.AZURE_CREDENTIALS }}"
+          echo "::add-mask::${{ secrets.ARM_ACCESS_KEY }}"
+          echo "✅ Masking applied for Azure credentials and Terraform backend key."
 
       # -----------------------------------------------
       # Step 3: Set up Terraform
@@ -32,7 +35,7 @@ jobs:
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.9.8 # or latest stable version
+          terraform_version: 1.9.8
 
       # -----------------------------------------------
       # Step 4: Terraform Init
@@ -42,14 +45,37 @@ jobs:
         run: terraform init -input=false -no-color
 
       # -----------------------------------------------
-      # Step 5: Terraform Apply
+      # Step 5: Check and Import Resource Group if Needed
+      # -----------------------------------------------
+      - name: Check and Import Resource Group if Needed
+        working-directory: infra
+        env:
+          AZURE_SUBSCRIPTION_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}
+        run: |
+          set -e
+          echo "🔍 Checking if resource group exists in Azure..."
+          if az group show --name java-azure-demo-rg --subscription $AZURE_SUBSCRIPTION_ID > /dev/null 2>&1; then
+            echo "✅ Resource group already exists. Importing into Terraform state..."
+            terraform import -no-color azurerm_resource_group.rg /subscriptions/$AZURE_SUBSCRIPTION_ID/resourceGroups/java-azure-demo-rg || \
+              echo "ℹ️ Import may already exist in Terraform state. Continuing..."
+          else
+            echo "🆕 Resource group does not exist. Terraform will create it."
+          fi
+
+      # -----------------------------------------------
+      # Step 6: Terraform Apply (Sensitive-safe)
       # -----------------------------------------------
       - name: Terraform Apply
         working-directory: infra
-        run: terraform apply -auto-approve -no-color -var='azure_credentials=${{ secrets.AZURE_CREDENTIALS }}'
+        run: |
+          set -e
+          echo "🚀 Applying Terraform changes securely..."
+          terraform apply -auto-approve -no-color -var='azure_credentials=${{ secrets.AZURE_CREDENTIALS }}' \
+          | sed -E 's/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[REDACTED]/g' \
+          | sed -E 's/[A-Za-z0-9+\/=]{20,}/[REDACTED]/g'
 
       # -----------------------------------------------
-      # Step 6: Set up Java
+      # Step 7: Set up Java
       # -----------------------------------------------
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -58,13 +84,13 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
 
       # -----------------------------------------------
-      # Step 7: Build JAR with Maven
+      # Step 8: Build JAR with Maven
       # -----------------------------------------------
       - name: Build application
         run: mvn clean package -DskipTests
 
       # -----------------------------------------------
-      # Step 8: Azure Login
+      # Step 9: Azure Login (masked)
       # -----------------------------------------------
       - name: Azure Login
         uses: azure/login@v2
@@ -72,10 +98,10 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       # -----------------------------------------------
-      # Step 9: Deploy JAR to Azure Web App
+      # Step 10: Deploy JAR to Azure Web App
       # -----------------------------------------------
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'java-azure-demo-app' # must match Terraform-created app name
+          app-name: 'java-azure-demo-app'
           package: 'target/*.jar'
