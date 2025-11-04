@@ -71,7 +71,11 @@ jobs:
             echo "Checking if it's tracked by Terraform..."
             terraform state list | grep "azurerm_resource_group.rg" > /dev/null 2>&1 || {
               echo "📦 Importing existing Resource Group into Terraform state..."
-              terraform import azurerm_resource_group.rg /subscriptions/$AZURE_SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP || echo "ℹ️ Import may already exist. Continuing..."
+              terraform import -no-color \
+                -var='azure_credentials=${{ secrets.AZURE_CREDENTIALS }}' \
+                azurerm_resource_group.rg \
+                /subscriptions/$AZURE_SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP \
+                || echo "ℹ️ Import may already exist or failed gracefully. Continuing..."
             }
           else
             echo "🆕 Resource Group does not exist. Terraform will create it."
@@ -102,7 +106,7 @@ jobs:
           cat plan_output.txt | sed -E 's/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[REDACTED-GUID]/g' | sed -E 's/\/subscriptions\/[0-9a-f-]+/[REDACTED-SUBSCRIPTION]/g'
 
       # -----------------------------------------------
-      # Step 8: Terraform Apply (Only if no critical drift)
+      # Step 8: Terraform Apply (Sensitive-safe)
       # -----------------------------------------------
       - name: Terraform Apply (Sensitive-safe)
         if: env.drift_detected == 'true' || env.drift_detected == 'false'
