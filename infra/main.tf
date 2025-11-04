@@ -85,14 +85,3 @@ resource "azurerm_linux_web_app" "app" {
     "WEBSITE_RUN_FROM_PACKAGE" = "1"
   }
 }
-
-# -------------------------------------------------------------
-# Outputs
-# -------------------------------------------------------------
-output "webapp_name" {
-  value = azurerm_linux_web_app.app.name
-}
-
-output "webapp_url" {
-  value = azurerm_linux_web_app.app.default_hostname
-}
