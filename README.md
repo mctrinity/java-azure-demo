@@ -144,6 +144,81 @@ Pipeline is secure — all credentials are stored as GitHub Secrets.
 
 ---
 
+## 🧠 Troubleshooting Terraform Authentication
+
+If you encounter the error:
+
+```
+Error: unable to build authorizer for Resource Manager API: could not configure AzureCli Authorizer
+```
+
+Terraform cannot authenticate in GitHub Actions because `az login` is not available in runners.
+
+✅ **Fix:** Use explicit Service Principal credentials in Terraform.
+
+1. Update `provider "azurerm"` block:
+
+   ```hcl
+   provider "azurerm" {
+     features {}
+
+     subscription_id = jsondecode(var.azure_credentials)["subscriptionId"]
+     client_id       = jsondecode(var.azure_credentials)["clientId"]
+     client_secret   = jsondecode(var.azure_credentials)["clientSecret"]
+     tenant_id       = jsondecode(var.azure_credentials)["tenantId"]
+   }
+   ```
+
+2. Add to `variables.tf`:
+
+   ```hcl
+   variable "azure_credentials" {
+     description = "Azure service principal credentials in JSON format"
+     type        = string
+   }
+   ```
+
+3. Pass the credentials from GitHub Actions:
+
+   ```yaml
+   - name: Terraform Apply
+     working-directory: infra
+     run: terraform apply -auto-approve -var="azure_credentials=${{ secrets.AZURE_CREDENTIALS }}"
+   ```
+
+This ensures Terraform authenticates securely using your Service Principal JSON instead of relying on an Azure CLI login.
+
+---
+
+### 🔍 Test Locally Before Pushing
+
+You can test authentication locally using the same Service Principal credentials to confirm everything works before committing to GitHub:
+
+1. Save your JSON credentials to a file (e.g., `azure_credentials.json`).
+2. Run Terraform commands locally with:
+
+   ```powershell
+   cd infra
+   terraform init
+   terraform plan -var="azure_credentials=$(Get-Content ../azure_credentials.json -Raw)"
+   ```
+3. If `terraform plan` runs successfully, your credentials and backend are configured correctly.
+
+This mirrors what GitHub Actions does during CI/CD.
+
+#### 🧩 Secure Storage Tip
+
+* **Never commit your `azure_credentials.json` file to Git!**
+* Add it to your `.gitignore` file:
+
+  ```
+  azure_credentials.json
+  ```
+* Store it securely (e.g., in an encrypted local vault or password manager).
+* Use it only for local Terraform testing — GitHub Actions will use the secret instead.
+
+---
+
 ## ✅ Verification
 
 After deployment, Terraform outputs your Web App URL. You can also find it in Azure Portal → **App Services → java-azure-demo-app**.
@@ -158,8 +233,8 @@ https://java-azure-demo-app.azurewebsites.net
 
 ## 🧠 Notes
 
-* `terraform apply` is **idempotent** — it won’t recreate resources unless you change configuration.
-* Each Terraform project should use a unique `key` in the backend (`.tfstate` file).
+* `terraform apply` is **idempotent** — it won’t recreate resources unless configuration changes.
+* Each Terraform project should use a unique backend `key`.
 * You can reuse the same `tfstate` storage account for multiple apps.
 * Your Hotmail Azure account works fine — just use the storage **access key** instead of Entra ID roles.
 

@@ -1,11 +1,18 @@
 # .gitignore for Java Azure Demo
+# ==========================================
+# Ensures build outputs, secrets, and Terraform state
+# are not committed to Git. 
+# 🚨 Security Tip: Never commit azure_credentials.json — 
+# used only for local Terraform testing.
 
 # ----------------------------------------------------
+# Local Azure credentials (do not commit)
+# ----------------------------------------------------
+azure_credentials.json
 
+# ----------------------------------------------------
 # Java / Maven build outputs
-
 # ----------------------------------------------------
-
 target/
 *.class
 *.jar
@@ -13,22 +20,16 @@ target/
 *.ear
 
 # ----------------------------------------------------
-
 # Logs and temp files
-
 # ----------------------------------------------------
-
 *.log
 *.tmp
 *.swp
 *.swo
 
 # ----------------------------------------------------
-
 # IntelliJ IDEA / Eclipse / VSCode project files
-
 # ----------------------------------------------------
-
 .idea/
 *.iml
 .classpath
@@ -37,50 +38,34 @@ target/
 .vscode/
 
 # ----------------------------------------------------
-
 # OS-specific files
-
 # ----------------------------------------------------
-
 .DS_Store
 Thumbs.db
 
 # ----------------------------------------------------
-
 # Terraform state and cache
-
 # ----------------------------------------------------
-
 infra/.terraform/
 infra/.terraform.lock.hcl
 *.tfstate
 *.tfstate.backup
 
 # ----------------------------------------------------
-
 # PowerShell and secrets
-
 # ----------------------------------------------------
-
 *.ps1.bak
 secrets.json
 
 # ----------------------------------------------------
-
 # GitHub Actions / CI generated files
-
 # ----------------------------------------------------
-
 *.env
 *.log
 coverage/
 
 # ----------------------------------------------------
-
 # Java Azure Demo specific
-
 # ----------------------------------------------------
-
 # Skip compiled JARs and tfstate unless needed for debugging
-
 java-azure-demo-*.jar

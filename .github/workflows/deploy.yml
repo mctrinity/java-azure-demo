@@ -39,7 +39,7 @@ jobs:
       # -----------------------------------------------
       - name: Terraform Apply
         working-directory: infra
-        run: terraform apply -auto-approve
+        run: terraform apply -auto-approve -var="azure_credentials=${{ secrets.AZURE_CREDENTIALS }}"
 
       # -----------------------------------------------
       # Step 5: Set up Java

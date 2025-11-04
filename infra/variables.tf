@@ -15,3 +15,8 @@ variable "app_name" {
   type        = string
   default     = "java-azure-demo-app"
 }
+
+variable "azure_credentials" {
+  description = "Azure service principal credentials in JSON format"
+  type        = string
+}
