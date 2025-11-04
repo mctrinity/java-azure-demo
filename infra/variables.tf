@@ -19,4 +19,5 @@ variable "app_name" {
 variable "azure_credentials" {
   description = "Azure service principal credentials in JSON format"
   type        = string
+  sensitive   = true
 }
