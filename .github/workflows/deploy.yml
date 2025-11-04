@@ -45,37 +45,49 @@ jobs:
         run: terraform init -input=false -no-color
 
       # -----------------------------------------------
-      # Step 5: Check and Import Resource Group if Needed
+      # Step 5: Terraform Apply (with auto-import + redaction)
       # -----------------------------------------------
-      - name: Check and Import Resource Group if Needed
+      - name: Terraform Apply (Auto Import + Secure Logs)
         working-directory: infra
         env:
           AZURE_SUBSCRIPTION_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}
         run: |
           set -e
-          echo "🔍 Checking if resource group exists in Azure..."
-          if az group show --name java-azure-demo-rg --subscription $AZURE_SUBSCRIPTION_ID > /dev/null 2>&1; then
-            echo "✅ Resource group already exists. Importing into Terraform state..."
-            terraform import -no-color azurerm_resource_group.rg /subscriptions/$AZURE_SUBSCRIPTION_ID/resourceGroups/java-azure-demo-rg || \
-              echo "ℹ️ Import may already exist in Terraform state. Continuing..."
-          else
-            echo "🆕 Resource group does not exist. Terraform will create it."
+          echo "🚀 Applying Terraform changes securely..."
+
+          terraform apply -auto-approve -no-color -var='azure_credentials=${{ secrets.AZURE_CREDENTIALS }}' 2>&1 | tee terraform.log \
+          | sed -E 's/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[REDACTED-GUID]/g' \
+          | sed -E 's/(\/subscriptions\/)[^\/]+/\1[REDACTED-SUBSCRIPTION]/g' \
+          | sed -E 's/(client_secret|access_key|token|connection_string|password)["'\'']?:["'\'']?[^"'\'' ]+/[REDACTED-SECRET]/gi'
+
+          status=${PIPESTATUS[0]}
+
+          if [ $status -ne 0 ]; then
+            echo "⚠️ Terraform apply failed — checking for existing Azure resources..."
+
+            if grep -q "already exists" terraform.log; then
+              echo "🔄 Resource already exists in Azure — attempting import..."
+              terraform import -no-color azurerm_resource_group.rg /subscriptions/$AZURE_SUBSCRIPTION_ID/resourceGroups/java-azure-demo-rg || true
+
+              echo "🔁 Retrying Terraform apply..."
+              terraform apply -auto-approve -no-color -var='azure_credentials=${{ secrets.AZURE_CREDENTIALS }}' 2>&1 \
+              | sed -E 's/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[REDACTED-GUID]/g' \
+              | sed -E 's/(\/subscriptions\/)[^\/]+/\1[REDACTED-SUBSCRIPTION]/g' \
+              | sed -E 's/(client_secret|access_key|token|connection_string|password)["'\'']?:["'\'']?[^"'\'' ]+/[REDACTED-SECRET]/gi'
+
+              status=${PIPESTATUS[0]}
+            fi
           fi
 
-      # -----------------------------------------------
-      # Step 6: Terraform Apply (Sensitive-safe)
-      # -----------------------------------------------
-      - name: Terraform Apply
-        working-directory: infra
-        run: |
-          set -e
-          echo "🚀 Applying Terraform changes securely..."
-          terraform apply -auto-approve -no-color -var='azure_credentials=${{ secrets.AZURE_CREDENTIALS }}' \
-          | sed -E 's/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[REDACTED]/g' \
-          | sed -E 's/[A-Za-z0-9+\/=]{20,}/[REDACTED]/g'
+          if [ $status -ne 0 ]; then
+            echo "❌ Terraform failed after import attempt. Stopping pipeline."
+            exit $status
+          fi
+
+          echo "✅ Terraform apply completed successfully."
 
       # -----------------------------------------------
-      # Step 7: Set up Java
+      # Step 6: Set up Java
       # -----------------------------------------------
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -84,13 +96,13 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
 
       # -----------------------------------------------
-      # Step 8: Build JAR with Maven
+      # Step 7: Build JAR with Maven
       # -----------------------------------------------
       - name: Build application
         run: mvn clean package -DskipTests
 
       # -----------------------------------------------
-      # Step 9: Azure Login (masked)
+      # Step 8: Azure Login (masked)
       # -----------------------------------------------
       - name: Azure Login
         uses: azure/login@v2
@@ -98,7 +110,7 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       # -----------------------------------------------
-      # Step 10: Deploy JAR to Azure Web App
+      # Step 9: Deploy JAR to Azure Web App
       # -----------------------------------------------
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3

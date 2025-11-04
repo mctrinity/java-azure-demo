@@ -69,3 +69,8 @@ coverage/
 # ----------------------------------------------------
 # Skip compiled JARs and tfstate unless needed for debugging
 java-azure-demo-*.jar
+
+# ----------------------------------------------------
+# Local Terraform backups (DO NOT COMMIT)
+# ----------------------------------------------------
+backups/

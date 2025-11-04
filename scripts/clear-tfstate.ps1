@@ -1,39 +1,53 @@
 <#
 .SYNOPSIS
-    Securely lists Terraform state blobs in your Azure backend.
+    Securely deletes a Terraform state (.tfstate) blob from Azure Storage.
 
 .DESCRIPTION
-    This script lists all tfstate files stored in your Azure Storage container,
-    while ensuring all output (including warnings) is redacted for security.
+    This script safely removes a Terraform state file from your Azure backend.
+    Before deletion, it can optionally create a local timestamped backup
+    (with the project name prefix). All console output is sanitized to redact
+    sensitive data such as subscription IDs, GUIDs, access keys, and blob URLs.
 
 .PARAMETER resourceGroup
-    Azure Resource Group containing the backend. Default: tfstate-rg
+    Azure Resource Group containing the storage account. Default: tfstate-rg
 
 .PARAMETER storageAccount
-    Azure Storage Account used for tfstate. Default: orgtfstate
+    Azure Storage Account used by the Terraform backend. Default: orgtfstate
 
 .PARAMETER containerName
-    Container holding Terraform states. Default: tfstate
+    Blob container storing the tfstate file. Default: tfstate
+
+.PARAMETER blobName
+    Name of the Terraform state blob to delete. Default: java-azure-demo.tfstate
+
+.PARAMETER backupBeforeDelete
+    Optional switch. If set, downloads a timestamped backup of the tfstate file
+    before deletion.
 
 .EXAMPLE
-    .\scripts\check-tfstate.ps1
-    Lists tfstate files securely, redacting any sensitive identifiers.
+    .\scripts\clear-tfstate.ps1
+    Deletes the tfstate blob securely, redacting all sensitive logs.
+
+.EXAMPLE
+    .\scripts\clear-tfstate.ps1 -backupBeforeDelete
+    Creates a secure backup of the tfstate file before deleting it.
 
 .NOTES
     Author: Your Name
     Date: 2025-11-04
     Requires: Azure CLI (az)
-    Read-only operation — no resources modified.
 #>
 
 param (
     [string]$resourceGroup = "tfstate-rg",
     [string]$storageAccount = "orgtfstate",
-    [string]$containerName = "tfstate"
+    [string]$containerName = "tfstate",
+    [string]$blobName = "java-azure-demo.tfstate",
+    [switch]$backupBeforeDelete
 )
 
 # ------------------------------------------
-# Helper: Securely print output (redacting secrets)
+# Helper: Securely print redacted output
 # ------------------------------------------
 function Write-SecureOutput {
     param ([string]$text)
@@ -46,16 +60,16 @@ function Write-SecureOutput {
     Write-Host $redacted
 }
 
-Write-SecureOutput "📦 Checking Terraform state files in Azure Storage..."
-Write-SecureOutput "Target: $storageAccount/$containerName"
+Write-SecureOutput "⚙️  Starting secure Terraform state cleanup..."
+Write-SecureOutput "Target: $storageAccount/$containerName/$blobName"
 Write-SecureOutput "------------------------------------------"
 
-# 1️⃣ Authenticate
+# 1️⃣ Login to Azure
 Write-SecureOutput "🔐 Logging in to Azure..."
 $loginOutput = az login 2>&1
 Write-SecureOutput ($loginOutput | Out-String)
 
-# 2️⃣ Retrieve Storage Key
+# 2️⃣ Retrieve Storage Account Key
 Write-SecureOutput "🔑 Retrieving storage account key..."
 $keyOutput = az storage account keys list `
   --resource-group $resourceGroup `
@@ -64,25 +78,62 @@ $keyOutput = az storage account keys list `
 
 $accountKey = ($keyOutput | Out-String).Trim()
 if (-not $accountKey) {
-    Write-SecureOutput "❌ Unable to retrieve storage key. Please check permissions."
+    Write-SecureOutput "❌ Failed to retrieve storage account key. Please check access."
     exit 1
 }
 
-# 3️⃣ List Blobs
-Write-SecureOutput "📜 Listing .tfstate blobs..."
-$listOutput = az storage blob list `
-  --account-name $storageAccount `
-  --container-name $containerName `
-  --account-key $accountKey `
-  --query "[].{Name:name, LastModified:properties.lastModified, Size:properties.contentLength}" `
-  -o table 2>&1
+# 3️⃣ Optional Backup Before Delete
+if ($backupBeforeDelete) {
+    Write-SecureOutput "💾 Backup requested — downloading blob before deletion..."
+    $timestamp = Get-Date -Format "yyyy-MM-dd-HHmm"
+    $backupDir = "./backups"
+    if (!(Test-Path $backupDir)) { New-Item -ItemType Directory -Path $backupDir | Out-Null }
 
-if ($LASTEXITCODE -eq 0 -and $listOutput) {
-    Write-SecureOutput "`n✅ Terraform state files found:"
-    Write-SecureOutput "------------------------------------------"
-    Write-SecureOutput ($listOutput | Out-String)
-} else {
-    Write-SecureOutput "⚠️ No Terraform state files found or unable to list blobs."
+    # Extract a safe prefix from blob name (strip .tfstate)
+    $prefix = ($blobName -replace '\.tfstate$', '')
+    $backupFile = "$backupDir/${prefix}-$timestamp.tfstate"
+
+    $downloadOutput = az storage blob download `
+      --account-name $storageAccount `
+      --container-name $containerName `
+      --name $blobName `
+      --file $backupFile `
+      --account-key $accountKey 2>&1
+
+    Write-SecureOutput ($downloadOutput | Out-String)
+
+    if (Test-Path $backupFile) {
+        Write-SecureOutput "✅ Backup created: $backupFile"
+    } else {
+        Write-SecureOutput "⚠️  Backup failed or blob not found."
+    }
 }
 
-Write-SecureOutput "`n🎯 Done. All sensitive information redacted from output."
+# 4️⃣ Delete Blob
+Write-SecureOutput "🗑️  Deleting tfstate blob..."
+$deleteOutput = az storage blob delete `
+  --account-name $storageAccount `
+  --container-name $containerName `
+  --name $blobName `
+  --account-key $accountKey `
+  --only-show-errors 2>&1
+
+Write-SecureOutput ($deleteOutput | Out-String)
+
+# 5️⃣ Verify Deletion
+Write-SecureOutput "🔍 Verifying deletion..."
+$exists = az storage blob exists `
+  --account-name $storageAccount `
+  --container-name $containerName `
+  --name $blobName `
+  --account-key $accountKey `
+  --query "exists" -o tsv 2>&1
+
+if ($exists -match "false") {
+    Write-SecureOutput "✅ Terraform state successfully cleared."
+} else {
+    Write-SecureOutput "⚠️  Terraform state still exists — please verify manually."
+}
+
+Write-SecureOutput "`n🎯 Done. Terraform will rebuild state automatically on next deploy."
+Write-SecureOutput "All sensitive information has been redacted from output."
