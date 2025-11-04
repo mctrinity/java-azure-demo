@@ -55,15 +55,16 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       # -----------------------------------------------
-      # Step 5.5: Register Required Providers
+      # Step 5.5: Verify Required Providers (Non-blocking)
       # -----------------------------------------------
-      - name: Register Azure Providers
+      - name: Verify Azure Providers
+        continue-on-error: true
         run: |
-          echo "🔧 Registering required Azure providers..."
-          az provider register --namespace Microsoft.App --wait
-          az provider register --namespace Microsoft.ContainerRegistry --wait
-          az provider register --namespace Microsoft.OperationalInsights --wait
-          echo "✅ Providers registered successfully"
+          echo "� Checking required Azure providers..."
+          az provider show --namespace Microsoft.App --query "registrationState" -o tsv || echo "Microsoft.App: Unknown"
+          az provider show --namespace Microsoft.ContainerRegistry --query "registrationState" -o tsv || echo "Microsoft.ContainerRegistry: Unknown"
+          az provider show --namespace Microsoft.OperationalInsights --query "registrationState" -o tsv || echo "Microsoft.OperationalInsights: Unknown"
+          echo "ℹ️ If any providers show 'NotRegistered', they need to be registered by a subscription admin"
 
       # -----------------------------------------------
       # Step 6: Check and Import Resource Group if Needed
