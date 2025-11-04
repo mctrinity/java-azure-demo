@@ -91,7 +91,7 @@ resource "azurerm_container_app" "app" {
     container {
       name   = "java-app"
       # Start with a placeholder image; GitHub Actions will update this
-      image  = "mcr.microsoft.com/openjdk/jdk:17-ubuntu"
+      image  = "eclipse-temurin:17-jdk-alpine"
       cpu    = "0.25"
       memory = "0.5Gi"
 
