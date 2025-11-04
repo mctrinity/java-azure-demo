@@ -165,7 +165,38 @@ jobs:
         run: mvn clean package -DskipTests
 
       # -----------------------------------------------
-      # Step 11: Verify Container App exists before deployment
+      # Step 11: Get ACR Information
+      # -----------------------------------------------
+      - name: Get ACR Information
+        id: get-acr
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          ACR_NAME=$(terraform output -raw acr_name)
+          ACR_LOGIN_SERVER=$(terraform output -raw acr_login_server)
+          echo "acr_name=$ACR_NAME" >> $GITHUB_ENV
+          echo "acr_login_server=$ACR_LOGIN_SERVER" >> $GITHUB_ENV
+          echo "image_name=$ACR_LOGIN_SERVER/java-azure-demo:${{ github.sha }}" >> $GITHUB_ENV
+          echo "✅ ACR Name: $ACR_NAME"
+          echo "✅ ACR Login Server: $ACR_LOGIN_SERVER"
+
+      # -----------------------------------------------
+      # Step 12: Build and Push Docker Image to ACR
+      # -----------------------------------------------
+      - name: Build and Push Docker Image
+        run: |
+          echo "🐳 Building and pushing Docker image to ACR..."
+          
+          # Login to ACR
+          az acr login --name ${{ env.acr_name }}
+          
+          # Build and push the image
+          docker build -t ${{ env.image_name }} .
+          docker push ${{ env.image_name }}
+          
+          echo "✅ Image pushed: ${{ env.image_name }}"
+
+      # -----------------------------------------------
+      # Step 13: Verify Container App exists before deployment
       # -----------------------------------------------
       - name: Verify Container App exists
         id: verify-container-app
@@ -185,23 +216,30 @@ jobs:
           fi
 
       # -----------------------------------------------
-      # Step 12: Build and Deploy Container to Azure Container Apps
+      # Step 14: Update Container App with New Image
       # -----------------------------------------------
-      - name: Build and Deploy to Azure Container Apps
+      - name: Deploy to Azure Container Apps
         if: env.container_app_exists == 'true'
         run: |
-          echo "🐳 Building and deploying container to Azure Container Apps..."
+          echo "� Deploying new image to Azure Container Apps..."
           
-          # Build the container image and deploy directly to Container Apps
-          az containerapp up \
+          # Update the container app with the new image
+          az containerapp update \
             --name java-azure-demo-app \
             --resource-group java-azure-demo-rg \
-            --environment java-azure-demo-app-env \
-            --image mcr.microsoft.com/openjdk/jdk:17-ubuntu \
-            --target-port 8080 \
-            --ingress external \
-            --source . \
+            --image ${{ env.image_name }} \
             --cpu 0.25 \
             --memory 0.5Gi \
-            --min-replicas 1 \
-            --max-replicas 3
+            --min-replicas 0 \
+            --max-replicas 2 \
+            --set-env-vars "PORT=8080"
+          
+          # Get the final app URL
+          CONTAINER_APP_URL=$(az containerapp show \
+            --name java-azure-demo-app \
+            --resource-group java-azure-demo-rg \
+            --query "properties.configuration.ingress.fqdn" -o tsv)
+          
+          echo "✅ Deployment completed!"
+          echo "🌐 Container App URL: https://$CONTAINER_APP_URL"
+          echo "🐳 Image deployed: ${{ env.image_name }}"

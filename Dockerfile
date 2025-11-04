@@ -1,9 +1,10 @@
+# Use OpenJDK 17 as base image
 FROM openjdk:17-jdk-slim
 
 # Set working directory
 WORKDIR /app
 
-# Copy the JAR file
+# Copy the pre-built JAR file from GitHub Actions
 COPY target/*.jar app.jar
 
 # Expose port 8080

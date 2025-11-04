@@ -44,6 +44,22 @@ resource "azurerm_log_analytics_workspace" "law" {
 }
 
 # -------------------------------------------------------------
+# Azure Container Registry
+# -------------------------------------------------------------
+resource "azurerm_container_registry" "acr" {
+  name                = "${replace(var.app_name, "-", "")}acr"  # ACR names can't have hyphens
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  sku                 = "Basic"
+  admin_enabled       = true
+
+  tags = {
+    Environment = "demo"
+    Project     = "java-azure-demo"
+  }
+}
+
+# -------------------------------------------------------------
 # Container Apps Environment
 # -------------------------------------------------------------
 resource "azurerm_container_app_environment" "env" {
@@ -70,10 +86,11 @@ resource "azurerm_container_app" "app" {
 
   template {
     min_replicas = 0
-    max_replicas = 1
+    max_replicas = 2
 
     container {
       name   = "java-app"
+      # Start with a placeholder image; GitHub Actions will update this
       image  = "mcr.microsoft.com/openjdk/jdk:17-ubuntu"
       cpu    = "0.25"
       memory = "0.5Gi"
@@ -92,6 +109,18 @@ resource "azurerm_container_app" "app" {
       percentage      = 100
       latest_revision = true
     }
+  }
+
+  # Configure ACR access
+  registry {
+    server   = azurerm_container_registry.acr.login_server
+    username = azurerm_container_registry.acr.admin_username
+    password_secret_name = "acr-password"
+  }
+
+  secret {
+    name  = "acr-password"
+    value = azurerm_container_registry.acr.admin_password
   }
 
   # Add tags for debugging
