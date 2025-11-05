@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About - Azure Container Apps Blog</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <header class="header">
+        <nav class="nav container">
+            <div class="nav-brand">
+                <i class="fab fa-microsoft"></i>
+                <span>Azure Blog</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a th:href="@{/}" class="nav-link">Home</a></li>
+                <li><a th:href="@{/about}" class="nav-link active">About</a></li>
+                <li><a href="/actuator/health" class="nav-link">Health</a></li>
+                <li><a href="/api/info" class="nav-link">API</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="main">
+        <div class="container">
+            <div class="about-page">
+                <header class="about-header">
+                    <h1 class="about-title">About This Project</h1>
+                    <p class="about-subtitle">A modern Java Spring Boot application showcasing Azure Container Apps deployment with full CI/CD automation</p>
+                </header>
+
+                <div class="about-content">
+                    <section class="about-section">
+                        <h2><i class="fas fa-rocket"></i> Technology Stack</h2>
+                        <div class="tech-grid">
+                            <div class="tech-item">
+                                <i class="fab fa-java"></i>
+                                <h3>Java 17</h3>
+                                <p>Modern Java runtime with Spring Boot framework for robust enterprise applications</p>
+                            </div>
+                            <div class="tech-item">
+                                <i class="fas fa-leaf"></i>
+                                <h3>Spring Boot</h3>
+                                <p>Production-ready framework with embedded Tomcat, Thymeleaf templating, and actuator endpoints</p>
+                            </div>
+                            <div class="tech-item">
+                                <i class="fab fa-microsoft"></i>
+                                <h3>Azure Container Apps</h3>
+                                <p>Serverless container hosting with auto-scaling from 0-2 replicas based on demand</p>
+                            </div>
+                            <div class="tech-item">
+                                <i class="fab fa-docker"></i>
+                                <h3>Docker</h3>
+                                <p>Containerized deployment using Eclipse Temurin JDK images with multi-stage builds</p>
+                            </div>
+                            <div class="tech-item">
+                                <i class="fas fa-code-branch"></i>
+                                <h3>GitHub Actions</h3>
+                                <p>Automated CI/CD pipeline with Docker build, ACR push, and Container Apps deployment</p>
+                            </div>
+                            <div class="tech-item">
+                                <i class="fas fa-cubes"></i>
+                                <h3>Terraform</h3>
+                                <p>Infrastructure as Code for Azure resources with state management and version control</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="about-section">
+                        <h2><i class="fas fa-cloud"></i> Architecture Overview</h2>
+                        <div class="architecture-info">
+                            <div class="architecture-item">
+                                <h3>Azure Container Registry (ACR)</h3>
+                                <p>Private Docker image repository with Basic SKU, integrated with GitHub Actions for automated image builds and storage.</p>
+                            </div>
+                            <div class="architecture-item">
+                                <h3>Azure Container Apps Environment</h3>
+                                <p>Managed Kubernetes environment with Log Analytics Workspace for monitoring, metrics, and application insights.</p>
+                            </div>
+                            <div class="architecture-item">
+                                <h3>Azure Storage Account</h3>
+                                <p>Terraform state backend storage ensuring consistent infrastructure state management across deployments.</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="about-section">
+                        <h2><i class="fas fa-cogs"></i> Features & Capabilities</h2>
+                        <div class="features-grid">
+                            <div class="feature-item">
+                                <i class="fas fa-blog"></i>
+                                <h3>Blog Platform</h3>
+                                <p>Full-featured blog with posts, tags, search functionality, and responsive design</p>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-heartbeat"></i>
+                                <h3>Health Monitoring</h3>
+                                <p>Spring Boot Actuator endpoints for health checks, metrics, and application monitoring</p>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-api"></i>
+                                <h3>REST API</h3>
+                                <p>RESTful endpoints for programmatic access to blog posts and application information</p>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-mobile-alt"></i>
+                                <h3>Responsive Design</h3>
+                                <p>Mobile-first CSS design with modern UI/UX patterns and accessibility features</p>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-shield-alt"></i>
+                                <h3>Security</h3>
+                                <p>Azure Managed Identity integration and secure container deployment practices</p>
+                            </div>
+                            <div class="feature-item">
+                                <i class="fas fa-chart-line"></i>
+                                <h3>Auto-scaling</h3>
+                                <p>Automatic horizontal scaling based on CPU and memory usage with cost optimization</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="about-section">
+                        <h2><i class="fas fa-timeline"></i> Development Journey</h2>
+                        <div class="timeline">
+                            <div class="timeline-item">
+                                <div class="timeline-marker"></div>
+                                <div class="timeline-content">
+                                    <h3>Initial Setup</h3>
+                                    <p>Started with basic Spring Boot application and Azure Web App deployment attempt</p>
+                                </div>
+                            </div>
+                            <div class="timeline-item">
+                                <div class="timeline-marker"></div>
+                                <div class="timeline-content">
+                                    <h3>Migration to Container Apps</h3>
+                                    <p>Encountered quota limitations and migrated to Azure Container Apps architecture</p>
+                                </div>
+                            </div>
+                            <div class="timeline-item">
+                                <div class="timeline-marker"></div>
+                                <div class="timeline-content">
+                                    <h3>ACR Integration</h3>
+                                    <p>Implemented Azure Container Registry for private image storage and management</p>
+                                </div>
+                            </div>
+                            <div class="timeline-item">
+                                <div class="timeline-marker"></div>
+                                <div class="timeline-content">
+                                    <h3>CI/CD Pipeline</h3>
+                                    <p>Automated deployment pipeline with GitHub Actions and infrastructure provisioning</p>
+                                </div>
+                            </div>
+                            <div class="timeline-item">
+                                <div class="timeline-marker"></div>
+                                <div class="timeline-content">
+                                    <h3>Blog Enhancement</h3>
+                                    <p>Transformed simple REST API into full-featured blog website with modern styling</p>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="about-section">
+                        <h2><i class="fas fa-link"></i> Useful Links</h2>
+                        <div class="links-grid">
+                            <a href="/actuator/health" class="link-card">
+                                <i class="fas fa-heartbeat"></i>
+                                <h3>Health Check</h3>
+                                <p>Application health and status endpoint</p>
+                            </a>
+                            <a href="/api/info" class="link-card">
+                                <i class="fas fa-info-circle"></i>
+                                <h3>API Info</h3>
+                                <p>Application metadata and build information</p>
+                            </a>
+                            <a href="/api/posts" class="link-card">
+                                <i class="fas fa-code"></i>
+                                <h3>REST API</h3>
+                                <p>JSON API for programmatic access to posts</p>
+                            </a>
+                            <a href="https://github.com" class="link-card">
+                                <i class="fab fa-github"></i>
+                                <h3>Source Code</h3>
+                                <p>View the complete project on GitHub</p>
+                            </a>
+                        </div>
+                    </section>
+                </div>
+
+                <div class="about-cta">
+                    <h2>Ready to Deploy Your Own?</h2>
+                    <p>This project demonstrates best practices for cloud-native Java applications on Azure.</p>
+                    <div class="cta-buttons">
+                        <a th:href="@{/}" class="btn btn-primary">Explore Posts</a>
+                        <a href="https://azure.microsoft.com/en-us/products/container-apps" class="btn btn-secondary">Learn About Container Apps</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 Azure Container Apps Blog. Built with ❤️ and deployed to the cloud.</p>
+            <div class="footer-links">
+                <a href="https://azure.microsoft.com/en-us/products/container-apps">Azure Container Apps</a>
+                <a href="https://spring.io/projects/spring-boot">Spring Boot</a>
+                <a href="https://www.terraform.io/">Terraform</a>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

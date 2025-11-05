@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Azure Container Apps Blog</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <header class="header">
+        <nav class="nav container">
+            <div class="nav-brand">
+                <i class="fab fa-microsoft"></i>
+                <span>Azure Blog</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a th:href="@{/}" class="nav-link active">Home</a></li>
+                <li><a th:href="@{/about}" class="nav-link">About</a></li>
+                <li><a href="/actuator/health" class="nav-link">Health</a></li>
+                <li><a href="/api/info" class="nav-link">API</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="main">
+        <div class="container">
+            <div class="hero">
+                <h1 class="hero-title">Welcome to Azure Container Apps Blog</h1>
+                <p class="hero-subtitle">Exploring cloud-native development with Java, Spring Boot, and Azure</p>
+                <div class="hero-stats">
+                    <div class="stat">
+                        <i class="fas fa-file-alt"></i>
+                        <span th:text="${postCount}">5</span> Posts
+                    </div>
+                    <div class="stat">
+                        <i class="fas fa-tags"></i>
+                        <span th:text="${#lists.size(tags)}">8</span> Tags
+                    </div>
+                    <div class="stat">
+                        <i class="fab fa-docker"></i>
+                        Containerized
+                    </div>
+                </div>
+            </div>
+
+            <div class="content-grid">
+                <section class="posts-section">
+                    <h2 class="section-title">Latest Posts</h2>
+                    <div class="posts-grid">
+                        <article th:each="post : ${posts}" class="post-card">
+                            <div class="post-header">
+                                <h3 class="post-title">
+                                    <a th:href="@{/post/{id}(id=${post.id})}" th:text="${post.title}">Post Title</a>
+                                </h3>
+                                <div class="post-meta">
+                                    <span class="post-author">
+                                        <i class="fas fa-user"></i>
+                                        <span th:text="${post.author}">Author</span>
+                                    </span>
+                                    <span class="post-date">
+                                        <i class="fas fa-calendar"></i>
+                                        <span th:text="${post.formattedDate}">Date</span>
+                                    </span>
+                                    <span class="post-reading-time">
+                                        <i class="fas fa-clock"></i>
+                                        <span th:text="${post.readingTime}">5 min read</span>
+                                    </span>
+                                </div>
+                            </div>
+                            <p class="post-excerpt" th:text="${post.excerpt}">Post excerpt...</p>
+                            <div class="post-tags">
+                                <span th:each="tag : ${#strings.listSplit(post.tags, ',')}" class="tag">
+                                    <a th:href="@{/tag/{tag}(tag=${#strings.trim(tag)})}" th:text="${#strings.trim(tag)}">tag</a>
+                                </span>
+                            </div>
+                        </article>
+                    </div>
+                </section>
+
+                <aside class="sidebar">
+                    <div class="sidebar-widget">
+                        <h3 class="widget-title">Tags</h3>
+                        <div class="tag-cloud">
+                            <a th:each="tag : ${tags}" th:href="@{/tag/{tag}(tag=${tag})}" class="tag" th:text="${tag}">tag</a>
+                        </div>
+                    </div>
+
+                    <div class="sidebar-widget">
+                        <h3 class="widget-title">About This Blog</h3>
+                        <p>This blog demonstrates a modern Java application running on Azure Container Apps with Terraform infrastructure and GitHub Actions CI/CD.</p>
+                        <div class="tech-stack">
+                            <span class="tech-badge">Java 17</span>
+                            <span class="tech-badge">Spring Boot</span>
+                            <span class="tech-badge">Docker</span>
+                            <span class="tech-badge">Azure</span>
+                        </div>
+                    </div>
+
+                    <div class="sidebar-widget">
+                        <h3 class="widget-title">Quick Links</h3>
+                        <ul class="quick-links">
+                            <li><a href="https://github.com/mctrinity/java-azure-demo"><i class="fab fa-github"></i> Source Code</a></li>
+                            <li><a href="/actuator/health"><i class="fas fa-heartbeat"></i> Health Check</a></li>
+                            <li><a href="/api/info"><i class="fas fa-info-circle"></i> API Info</a></li>
+                        </ul>
+                    </div>
+                </aside>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 Azure Container Apps Blog. Built with ❤️ and deployed to the cloud.</p>
+            <div class="footer-links">
+                <a href="https://azure.microsoft.com/en-us/products/container-apps">Azure Container Apps</a>
+                <a href="https://spring.io/projects/spring-boot">Spring Boot</a>
+                <a href="https://www.terraform.io/">Terraform</a>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

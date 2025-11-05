@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${post.title} + ' - Azure Container Apps Blog'">Post Title - Azure Container Apps Blog</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism-tomorrow.min.css">
+</head>
+<body>
+    <header class="header">
+        <nav class="nav container">
+            <div class="nav-brand">
+                <i class="fab fa-microsoft"></i>
+                <span>Azure Blog</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a th:href="@{/}" class="nav-link">Home</a></li>
+                <li><a th:href="@{/about}" class="nav-link">About</a></li>
+                <li><a href="/actuator/health" class="nav-link">Health</a></li>
+                <li><a href="/api/info" class="nav-link">API</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="main">
+        <div class="container">
+            <article class="post-detail">
+                <header class="post-detail-header">
+                    <h1 class="post-detail-title" th:text="${post.title}">Post Title</h1>
+                    <div class="post-detail-meta">
+                        <span class="post-author">
+                            <i class="fas fa-user"></i>
+                            <span th:text="${post.author}">Author</span>
+                        </span>
+                        <span class="post-date">
+                            <i class="fas fa-calendar"></i>
+                            <span th:text="${post.formattedDate}">Date</span>
+                        </span>
+                        <span class="post-reading-time">
+                            <i class="fas fa-clock"></i>
+                            <span th:text="${post.readingTime}">5 min read</span>
+                        </span>
+                    </div>
+                    <div class="post-tags">
+                        <span th:each="tag : ${#strings.listSplit(post.tags, ',')}" class="tag">
+                            <a th:href="@{/tag/{tag}(tag=${#strings.trim(tag)})}" th:text="${#strings.trim(tag)}">tag</a>
+                        </span>
+                    </div>
+                </header>
+
+                <div class="post-content">
+                    <div th:utext="${#strings.replace(post.content, #strings.newLineChar(), '<br/>')}" class="content-body">
+                        Post content goes here...
+                    </div>
+                </div>
+
+                <footer class="post-detail-footer">
+                    <div class="post-navigation">
+                        <a th:href="@{/}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i>
+                            Back to Home
+                        </a>
+                    </div>
+                </footer>
+            </article>
+
+            <aside class="sidebar">
+                <div class="sidebar-widget">
+                    <h3 class="widget-title">All Tags</h3>
+                    <div class="tag-cloud">
+                        <a th:each="tag : ${tags}" th:href="@{/tag/{tag}(tag=${tag})}" class="tag" th:text="${tag}">tag</a>
+                    </div>
+                </div>
+
+                <div class="sidebar-widget">
+                    <h3 class="widget-title">Share This Post</h3>
+                    <div class="share-buttons">
+                        <a href="#" class="share-btn twitter" onclick="shareOnTwitter()">
+                            <i class="fab fa-twitter"></i> Twitter
+                        </a>
+                        <a href="#" class="share-btn linkedin" onclick="shareOnLinkedIn()">
+                            <i class="fab fa-linkedin"></i> LinkedIn
+                        </a>
+                        <a href="#" class="share-btn copy" onclick="copyLink()">
+                            <i class="fas fa-link"></i> Copy Link
+                        </a>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 Azure Container Apps Blog. Built with ❤️ and deployed to the cloud.</p>
+            <div class="footer-links">
+                <a href="https://azure.microsoft.com/en-us/products/container-apps">Azure Container Apps</a>
+                <a href="https://spring.io/projects/spring-boot">Spring Boot</a>
+                <a href="https://www.terraform.io/">Terraform</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        function shareOnTwitter() {
+            const title = document.querySelector('.post-detail-title').textContent;
+            const url = window.location.href;
+            window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(title)}&url=${encodeURIComponent(url)}`, '_blank');
+        }
+
+        function shareOnLinkedIn() {
+            const url = window.location.href;
+            window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`, '_blank');
+        }
+
+        function copyLink() {
+            navigator.clipboard.writeText(window.location.href).then(() => {
+                alert('Link copied to clipboard!');
+            });
+        }
+    </script>
+</body>
+</html>

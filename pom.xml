@@ -29,6 +29,12 @@
       <artifactId>spring-boot-starter-web</artifactId>
     </dependency>
 
+    <!-- Thymeleaf template engine -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-thymeleaf</artifactId>
+    </dependency>
+
     <!-- Actuator for health checks -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
